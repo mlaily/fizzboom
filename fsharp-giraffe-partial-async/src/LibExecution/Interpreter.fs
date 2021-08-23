@@ -4,6 +4,7 @@ open System.Threading.Tasks
 open FSharp.Data
 open FSharp.Data.JsonExtensions
 open FSharp.Control.Tasks
+open FSharp.Control.Tasks.Affine.Unsafe
 
 // fsharplint:disable FL0039
 
@@ -46,7 +47,7 @@ type Dval =
     | DList of List<Dval>
     | DBool of bool
     | DLambda of Symtable * List<string> * Expr
-    | DTask of Task<Dval>
+    | DTask of Ply.Ply<Dval>
 
     member this.isSpecial: bool =
         match this with
@@ -74,17 +75,17 @@ type Dval =
         |> Option.defaultValue (DList list)
 
 
-    member dv.toTask(): Task<Dval> =
+    member dv.toTask(): Ply.Ply<Dval> =
         match dv with
         | DTask t -> t
-        | _ -> task { return dv }
+        | _ -> uply { return dv }
 
 
     member dv.map(f: Dval -> Dval): Dval =
         match dv with
         | DTask t ->
             DTask
-                (task {
+                (uply {
                     let! dv = t
                     return (f dv)
                  })
@@ -94,7 +95,7 @@ type Dval =
         match dv with
         | DTask t ->
             DTask
-                (task {
+                (uply {
                     let! dv = t
                     // If `f` returns a task, don't wrap it
                     return! (f dv).toTask()
@@ -106,7 +107,7 @@ type Dval =
         | _, DTask _
         | DTask _, _ ->
             DTask
-                (task {
+                (uply {
                     let! t1 = dv1.toTask ()
                     let! t2 = dv2.toTask ()
                     // If `f` returns a task, don't wrap it
@@ -234,36 +235,23 @@ let fizzboom: Expr =
                                     sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
 
 
-let map_s (list: List<'a>) (f: 'a -> Dval): Task<List<Dval>> =
-    task {
-        let! result =
-            match list with
-            | [] -> task { return [] }
-            | head :: tail ->
-                task {
-                    let firstComp =
-                        task {
-                            let! result = (f head).toTask()
-                            return ([], result)
-                        }
-
-                    let! ((accum, lastcomp): (List<Dval> * Dval)) =
-                        List.fold (fun (prevcomp: Task<List<Dval> * Dval>) (arg: 'a) ->
-                            task {
-                                // Ensure the previous computation is done first
-                                let! ((accum, prev): (List<Dval> * Dval)) = prevcomp
-                                let accum = prev :: accum
-
-                                let! result = (f arg).toTask()
-
-                                return (accum, result)
-                            }) firstComp tail
-
-                    return List.rev (lastcomp :: accum)
-                }
-
-        return (result |> Seq.toList)
-    }
+let map_s (list: List<'a>) (f: 'a -> Dval): Ply.Ply<List<Dval>> =
+  uply {
+    let! result =
+      uply {
+        let! (accum: List<Dval>) =
+          List.fold (fun (accum: Ply.Ply<List<Dval>>) (arg: 'a) ->
+            uply {
+              // Ensure the previous computation is done first
+              let! (accum: List<Dval>) = accum
+              let! result = (f arg).toTask()
+              return result :: accum
+            })
+            (uply { return [] }) list
+        return List.rev accum
+     }
+    return (result |> Seq.toList)
+  }
 
 
 let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Dval =
@@ -282,7 +270,7 @@ let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr): Dval =
         (match tryFindFn desc with
          | Some fn ->
              DTask
-                 (task {
+                 (uply {
                      let! args = map_s exprs (evalAsync env st)
                      return! (call_fn_async env fn (Seq.toList args)).toTask()
                   })
@@ -338,7 +326,7 @@ module StdLib =
                     | env, [ DList l; DLambda (st, [ var ], body) ] ->
                         Ok
                             (DTask
-                                (task {
+                                (uply {
                                     let! result =
                                         map_s l (fun dv ->
                                             let st = st.Add(var, dv)
@@ -388,7 +376,7 @@ module StdLib =
                         try
                             Ok
                                 (DTask
-                                    (task {
+                                    (uply {
                                         let! response = Http.AsyncRequestString(url)
                                         let info = JsonValue.Parse(response)
                                         return (DString(info?data.AsString()))
@@ -405,11 +393,12 @@ let env =
     Environment.envWith (StdLib.functions ())
 
 let runAsync (e: Expr): Task<Dval> =
-    (evalAsync env Symtable.empty e).toTask()
+    Ply.TplPrimitives.runPlyAsTask ((evalAsync env Symtable.empty e).toTask())
 
 let runJSONAsync (e: Expr): Task<string> =
-    task {
+    uply {
         let! result = (runAsync e)
         let json = result.toJSON ()
         return json.ToString()
     }
+    |> Ply.TplPrimitives.runPlyAsTask
