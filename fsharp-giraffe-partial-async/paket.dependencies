@@ -1,7 +1,10 @@
+version 6.0.6
+
 source https://api.nuget.org/v3/index.json
+framework: 6.0
 
 storage: none
 
-nuget Giraffe ~> 4.1
+nuget FSharp.Core = 5.0.0
+nuget Giraffe = 5.0.0
 nuget FSharp.Data
-nuget Ply ~> 0.3.1
