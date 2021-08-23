@@ -2,4 +2,4 @@
 
 set -euo pipefail
 
-dotnet publish --configuration Release --runtime osx-x64
+dotnet publish --configuration Release
