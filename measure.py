@@ -37,6 +37,7 @@ def kill_proc_on_port(port):
 
 def kill_procs():
   kill_proc_on_port(1025)  # delay.js
+  kill_proc_on_port(4000)  # delay.js
   kill_proc_on_port(5000)  # delay.js
   kill_proc_on_port(5001)  # ocaml worker proc
   kill_proc_on_port(5002)  # ocaml worker proc
@@ -90,7 +91,7 @@ def install(dir):
 
 
 def start_server(dir):
-  kill_proc_on_port(5000)
+  kill_proc_on_port(4000)
   p("  Starting server")
   filename = logfile(dir, "server")
   file = open(filename, "w")
@@ -284,7 +285,7 @@ def test_fizzboom(dir, url):
 
 
 def get_host(dir):
-  return "http://localhost:5000"
+  return "http://localhost:4000"
 
 
 def is_broken(dir):

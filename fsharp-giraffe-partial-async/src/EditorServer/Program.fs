@@ -41,7 +41,7 @@ let main args =
         .ConfigureWebHostDefaults(
             fun webHostBuilder ->
                 webHostBuilder
-                    .UseUrls("http://127.0.0.1:5000")
+                    .UseUrls("http://127.0.0.1:4000")
                     .UseContentRoot(contentRoot)
                     .Configure(Action<IApplicationBuilder> configureApp)
                     .ConfigureServices(configureServices)
