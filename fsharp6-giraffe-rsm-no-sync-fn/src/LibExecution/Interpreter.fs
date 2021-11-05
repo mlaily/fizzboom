@@ -3,8 +3,6 @@
 open System.Threading.Tasks
 open FSharp.Data
 open FSharp.Data.JsonExtensions
-open FSharp.Control.Tasks
-open FSharp.Control.Tasks.Affine.Unsafe
 
 // fsharplint:disable FL0039
 
@@ -118,7 +116,7 @@ module Environment =
     { name : FnDesc.T
       parameters : List<Param>
       returnVal : RetVal
-      fn : (T * List<Dval>) -> Ply.Ply<Result<Dval, unit>> }
+      fn : (T * List<Dval>) -> Task<Result<Dval, unit>> }
 
   and T = { functions : Map<FnDesc.T, BuiltInFn> }
 
@@ -232,19 +230,19 @@ let fizzboom : Expr =
         )) ])
   )
 
-let map_s (list : List<'a>) (f : 'a -> Ply.Ply<'b>) : Ply.Ply<List<'b>> =
-  uply {
+let map_s (list : List<'a>) (f : 'a -> Task<'b>) : Task<List<'b>> =
+  task {
     let! result =
-      uply {
+      task {
         let! (accum : List<'b>) =
           List.fold
-            (fun (accum : Ply.Ply<List<'b>>) (arg : 'a) ->
-              uply {
+            (fun (accum : Task<List<'b>>) (arg : 'a) ->
+              task {
                 let! (accum : List<'b>) = accum
                 let! result = f arg
                 return result :: accum
               })
-            (uply { return [] })
+            (task { return [] })
             list
         return List.rev accum
       }
@@ -256,14 +254,14 @@ let rec evalAsync
   (env : Environment.T)
   (st : Symtable.T)
   (e : Expr)
-  : Ply.Ply<Dval> =
+  : Task<Dval> =
   let tryFindFn desc = env.functions.TryFind(desc)
 
   match e with
-  | EInt i -> uply { return DInt i }
-  | EString s -> uply { return DString s }
+  | EInt i -> task { return DInt i }
+  | EString s -> task { return DString s }
   | ELet (lhs, rhs, body) ->
-    uply {
+    task {
       let! rhs = evalAsync env st rhs
       let st = st.Add(lhs, rhs)
       return! (evalAsync env st body)
@@ -271,24 +269,24 @@ let rec evalAsync
   | EFnCall (desc, args) ->
     (match tryFindFn desc with
      | Some fn ->
-       uply {
+       task {
          let! args = map_s args (evalAsync env st)
          return! call_fn_async env fn (Seq.toList args)
        }
-     | None -> uply { return (err (NotAFunction desc)) })
+     | None -> task { return (err (NotAFunction desc)) })
   | EBinOp (arg1, desc, arg2) ->
     (match tryFindFn desc with
      | Some fn ->
-       uply {
+       task {
          let! arg1 = evalAsync env st arg1
          let! arg2 = evalAsync env st arg2
          return! call_fn_async env fn [ arg1; arg2 ]
        }
-     | None -> uply { return (err (NotAFunction desc)) })
-  | ELambda (vars, expr) -> uply { return DLambda(st, vars, expr) }
-  | EVariable (name) -> uply { return Symtable.get st name }
+     | None -> task { return (err (NotAFunction desc)) })
+  | ELambda (vars, expr) -> task { return DLambda(st, vars, expr) }
+  | EVariable (name) -> task { return Symtable.get st name }
   | EIf (cond, thenbody, elsebody) ->
-    uply {
+    task {
       let! cond = evalAsync env st cond
 
       match cond with
@@ -301,8 +299,8 @@ and call_fn_async
   (env : Environment.T)
   (fn : Environment.BuiltInFn)
   (args : List<Dval>)
-  : Ply.Ply<Dval> =
-  uply {
+  : Task<Dval> =
+  task {
     match List.tryFind (fun (dv : Dval) -> dv.isSpecial) args with
     | Some special -> return special
     | None ->
@@ -315,7 +313,7 @@ and call_fn_async
 module StdLib =
   let functions () : Map<FnDesc.T, Environment.BuiltInFn> =
     let fns : List<Environment.BuiltInFn> =
-      [ 
+      [
           { name = (FnDesc.stdFnDesc "Int" "range" 0)
             parameters =
               [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -328,8 +326,10 @@ module StdLib =
             fn =
               (function
               | _, [ DInt lower; DInt upper ] ->
-                List.map DInt [ lower .. upper ] |> DList |> Ok |> Ply.Ply
-              | _ -> Ply.Ply(Error())) }
+                task {
+                  return List.map DInt [ lower .. upper ] |> DList |> Ok
+                }
+              | _ -> task { return (Error()) }) }
           { name = (FnDesc.stdFnDesc "List" "map" 0)
             parameters =
               [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -344,7 +344,7 @@ module StdLib =
             fn =
               (function
               | env, [ DList l; DLambda (st, [ var ], body) ] ->
-                uply {
+                task {
                   let! result =
                     map_s
                       l
@@ -354,8 +354,7 @@ module StdLib =
 
                   return (result |> Dval.toDList |> Ok)
                 }
-
-              | _ -> uply { return Error() }) }
+              | _ -> task { return Error() }) }
           { name = (FnDesc.stdFnDesc "Int" "%" 0)
             parameters = [ param "a" TInt "Numerator"; param "b" TInt "Denominator" ]
             returnVal = (retVal TInt "Returns the modulus of a / b")
@@ -363,10 +362,10 @@ module StdLib =
               (function
               | env, [ DInt a; DInt b ] ->
                 try
-                  Ply.Ply(Ok(DInt(a % b)))
+                  task { return Ok(DInt(a % b)) }
                 with
-                | _ -> Ply.Ply(Ok(DInt(bigint 0)))
-              | _ -> Ply.Ply(Error())) }
+                | _ -> task { return Ok(DInt(bigint 0)) }
+              | _ -> task { return (Error())} ) }
           { name = (FnDesc.stdFnDesc "Int" "==" 0)
             parameters = [ param "a" TInt "a"; param "b" TInt "b" ]
             returnVal =
@@ -375,15 +374,15 @@ module StdLib =
                 "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
             fn =
               (function
-              | env, [ DInt a; DInt b ] -> Ply.Ply(Ok(DBool(a = b)))
-              | _ -> Ply.Ply(Error())) }
+              | env, [ DInt a; DInt b ] -> task { return Ok(DBool(a = b)) }
+              | _ -> task { return (Error()) }) }
           { name = (FnDesc.stdFnDesc "Int" "toString" 0)
             parameters = [ param "a" TInt "value" ]
             returnVal = (retVal TString "Stringified version of a")
             fn =
               (function
-              | env, [ DInt a ] -> Ply.Ply(Ok(DString(a.ToString())))
-              | _ -> Ply.Ply(Error())) }
+              | env, [ DInt a ] -> task { return (Ok(DString(a.ToString()))) }
+              | _ -> task { return (Error()) } ) }
           { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
             parameters = [ param "url" TString "URL to fetch" ]
             returnVal = (retVal TString "Body of response")
@@ -391,32 +390,32 @@ module StdLib =
               (function
               | env, [ DString url ] ->
                 try
-                  uply {
+                  task {
                     let! response = Http.AsyncRequestString(url)
                     let info = JsonValue.Parse(response)
                     return Ok(DString(info?data.AsString()))
                   }
                 with
                 | e ->
-                  printfn "error in HttpClient::get: %s" (e.ToString())
-                  uply { return Error() }
-              | _ -> uply { return Error() }) } ]
+                  task {
+                    printfn "error in HttpClient::get: %s" (e.ToString())
+                    return Error()
+                  }
+              | _ -> task { return Error() }) } ]
 
     fns
-    |> List.map
-         (fun fn -> (fn.name, fn))
+    |> List.map (fun fn -> (fn.name, fn))
     |> Map
 
 
 let env = Environment.envWith (StdLib.functions ())
 
 let runAsync (e : Expr) : Task<Dval> =
-  Ply.TplPrimitives.runPlyAsTask (evalAsync env Symtable.empty e)
+  (evalAsync env Symtable.empty e)
 
 let runJSONAsync (e : Expr) : Task<string> =
-  uply {
+  task {
     let! result = runAsync e
     let json = result.toJSON ()
     return json.ToString()
   }
-  |> Ply.TplPrimitives.runPlyAsTask

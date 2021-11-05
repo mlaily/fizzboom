@@ -8,7 +8,6 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open LibExecution
-open FSharp.Control.Tasks
 
 let runAsync e =
     fun (next : HttpFunc) (ctx : HttpContext) ->
