@@ -2,8 +2,6 @@ open Httpaf
 
 let fizzbuzz = Lib.Execution_engine.fizzbuzz
 
-let fizzboom = Lib.Execution_engine.fizzboom
-
 module Server = struct
   let get reqd =
     let {Request.target; _} = Reqd.request reqd in
@@ -19,8 +17,6 @@ module Server = struct
     match target with
     | "/fizzbuzz" ->
         handle fizzbuzz
-    | "/fizzboom" ->
-        handle fizzboom
     | _ ->
         Reqd.respond_with_string
           reqd

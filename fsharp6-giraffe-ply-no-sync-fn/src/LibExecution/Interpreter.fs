@@ -190,47 +190,6 @@ let fizzbuzz : Expr =
         )) ])
   )
 
-let fizzboom : Expr =
-  ELet(
-    "range",
-    (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
-    (sfn
-      "List"
-      "map"
-      0
-      [ EVariable "range"
-        (ELambda(
-          [ "i" ],
-          EIf(
-            (binOp
-              (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15)))
-              "Int"
-              "=="
-              0
-              (EInt(bigint 0))),
-            (sfn "HttpClient" "get" 0 [ EString "http://localhost:1025/delay/1" ]),
-            EIf(
-              binOp
-                (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5)))
-                "Int"
-                "=="
-                0
-                (EInt(bigint 0)),
-              EString "buzz",
-              EIf(
-                binOp
-                  (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3)))
-                  "Int"
-                  "=="
-                  0
-                  (EInt(bigint 0)),
-                EString "fizz",
-                sfn "Int" "toString" 0 [ EVariable "i" ]
-              )
-            )
-          )
-        )) ])
-  )
 
 let map_s (list : List<'a>) (f : 'a -> Ply.Ply<'b>) : Ply.Ply<List<'b>> =
   uply {
@@ -315,7 +274,7 @@ and call_fn_async
 module StdLib =
   let functions () : Map<FnDesc.T, Environment.BuiltInFn> =
     let fns : List<Environment.BuiltInFn> =
-      [ 
+      [
           { name = (FnDesc.stdFnDesc "Int" "range" 0)
             parameters =
               [ param "list" (TList(TVariable("a"))) "The list to be operated on"

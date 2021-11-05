@@ -193,43 +193,6 @@ let fizzbuzz : expr =
                         , sfn "Int" "toString" 0 [var "i"] ) ) ) ) ] )
 
 
-let fizzboom : expr =
-  ELet
-    ( "range"
-    , sfn "Int" "range" 0 [int 1; int 100]
-    , sfn
-        "List"
-        "map"
-        0
-        [ var "range"
-        ; ELambda
-            ( ["i"]
-            , EIf
-                ( binOp
-                    (binOp (var "i") "Int" "%" 0 (int 15))
-                    "Int"
-                    "=="
-                    0
-                    (int 0)
-                , sfn "HttpClient" "get" 0 [str "http://localhost:1025/delay/1"]
-                , EIf
-                    ( binOp
-                        (binOp (var "i") "Int" "%" 0 (int 5))
-                        "Int"
-                        "=="
-                        0
-                        (int 0)
-                    , EString "buzz"
-                    , EIf
-                        ( binOp
-                            (binOp (var "i") "Int" "%" 0 (int 3))
-                            "Int"
-                            "=="
-                            0
-                            (int 0)
-                        , str "fizz"
-                        , sfn "Int" "toString" 0 [var "i"] ) ) ) ) ] )
-
 
 let rec eval (env : Environment.t) (st : Symtable.t) (e : expr) : dval =
   match e with

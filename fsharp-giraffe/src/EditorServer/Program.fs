@@ -14,15 +14,9 @@ let runFizzbuzz =
         let fizzbuzz = Interpreter.runJSON Interpreter.fizzbuzz
         text fizzbuzz next ctx
 
-let runFizzboom =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
-        let fizzboom = Interpreter.runJSON Interpreter.fizzboom
-        text fizzboom next ctx
-
 let webApp =
     choose [ GET >=> choose [
-        route "/fizzbuzz" >=> runFizzbuzz
-        route "/fizzboom" >=> runFizzboom ]]
+        route "/fizzbuzz" >=> runFizzbuzz ]]
 
 let configureApp (app : IApplicationBuilder) =
     app.UseGiraffe webApp

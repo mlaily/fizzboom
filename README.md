@@ -7,18 +7,11 @@ Dark already has [an
 implementation](https://github.com/darklang/dark/blob/main/backend/libexecution/ast.ml),
 but we are looking for improvements, especially around async.
 
-The benchmark has two parts:
-
 - fizzbuzz: using an interpreter connected to web server, dynamically calculate
   fizzbuzz and return it as a JSON response. This is to test the raw speed of
   the HTTP server and interpreter.
 
-- fizzboom: like fizzbuzz, except instead of printing "fizzbuzz", the program makes
-  a HTTP call that takes 1 second to complete. In Dark, users can write code
-  that makes HTTP calls to arbitrary servers, and we must handle pessimistic
-  cases like this.
-
-In both cases, the most important metric is _requests/second_.
+The most important metric is _requests/second_.
 
 # Contributing
 
@@ -43,7 +36,7 @@ variations (different web servers, new languages/frameworks, etc). Some rules:
 
 The benchmark is implemented in [measure.py](measure.py). Requires [wrk](https://github.com/wg/wrk) to be installed.
 
-Run `./measure` to test all the fizzboom implementations, or
+Run `./measure` to test all the fizzbuzz implementations, or
 `./measure <directory_name1> <directory_name2> <etc>` to test a subset
 of them.
 
@@ -57,40 +50,24 @@ Each benchmark candidate is in its own directory, which has some known files:
 - `BROKEN` - if this file exists, skip the implementation in this directory
 
 Benchmarks implement a HTTP server connected to an interpreter which each
-implement a simple subset of the dark language. The function `HTTPClient::get`
-calls a URL and fetches the `data` key of the json it returns; the URL to pass
-to it is `http://localhost:1025/delay/1`.
+implement a simple subset of the dark language.
 
 The purpose of the benchmark is to establish:
 
 - how fast the language is
 - what is the cost of async
-- can anything to done to make async much faster
-
-There should be, in general, about 2-3 benchmarks per language:
-
-- a synchronous implementation
-- an asynchronous implementation
-- an optimized asynchronous implementation
+- test variations of using async to see how performance can be improved
 
 The sync implementation helps us figure out a baseline for the performance. We
 can then compare the sync and async implementation on fizzbuzz to see how much
 async costs.
 
-Different languages can be compared async-vs-async for both fizzboom (which is
-async performance) and fizzbuzz (which is raw performance given fizzbuzz
-constraints).
+Different languages can be compared async-vs-async for (which is raw performance
+given fizzbuzz constraints).
 
 The optimized async implementation is to see the value of different
 optimizations and see if there are ways to optimize above a baseline async
 implementation.
-
-### Delay server
-
-The delay server is run via `node delay.js`. You can make a call to it as `delay/1` for it to wait 1s (pick any integer).
-
-The delay server is capable of handling about 900 req/s on my machine with
-minimal CPU overhead.
 
 ## Results
 

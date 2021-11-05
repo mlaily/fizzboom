@@ -10,49 +10,6 @@ use std::{convert::Infallible, net::SocketAddr};
 
 use execution_engine::{self, eval, expr::*, runtime};
 
-fn fizzboom<'a>() -> Expr<'a> {
-  elet("range",
-       esfn("Int", "range", 0, [eint(1), eint(100),].into()),
-       esfn("List",
-            "map",
-            0,
-            [(evar("range")),
-                  elambda((&["i"][..]).into(),
-                          eif(ebinop(ebinop(evar("i"),
-                                            "Int",
-                                            "%",
-                                            0,
-                                            eint(15)),
-                                     "Int",
-                                     "==",
-                                     0,
-                                     eint(0)),
-                              esfn("HTTPClient", "get", 0, [estr("http://localhost:1025/delay/1")].into()),
-                              eif(ebinop(ebinop(evar("i"),
-                                                "Int",
-                                                "%",
-                                                0,
-                                                eint(5)),
-                                         "Int",
-                                         "==",
-                                         0,
-                                         eint(0)),
-                                  estr("buzz"),
-                                  eif(ebinop(ebinop(evar("i"),
-                                                    "Int",
-                                                    "%",
-                                                    0,
-                                                    eint(3)),
-                                             "Int",
-                                             "==",
-                                             0,
-                                             eint(0)),
-                                      estr("fizz"),
-                                      esfn("Int",
-                                           "toString",
-                                           0,
-                                           [evar("i")].into())))))].into()))
-}
 fn fizzbuzz<'a>() -> Expr<'a> {
   elet("range",
        esfn("Int", "range", 0, [eint(1), eint(100),].into()),
@@ -121,9 +78,6 @@ async fn handle(req: Request<Body>)
         let r = fizzbuzz();
         let f = run_program(&r).await;
           *response.body_mut() = Body::from(f);
-      },
-      (&Method::GET, "/fizzboom") => {
-          *response.body_mut() = Body::from(run_program(&fizzboom()).await);
       },
       _ => {
           *response.status_mut() = StatusCode::NOT_FOUND;

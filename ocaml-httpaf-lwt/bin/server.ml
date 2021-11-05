@@ -2,8 +2,6 @@ open Httpaf
 
 let fizzbuzz = Lib.Execution_engine.fizzbuzz
 
-let fizzboom = Lib.Execution_engine.fizzboom
-
 let (let*) = Lwt.bind
 let (and*) = Lwt.both
 
@@ -21,7 +19,6 @@ module Server = struct
             let {Request.meth; target; _} = Httpaf.Reqd.request reqd in
             (match meth, target with
             | `GET, "/fizzbuzz" -> handle fizzbuzz
-            | `GET, "/fizzboom" -> handle fizzboom
             | _ ->
               (* let headers = Headers.of_list [ "connection", "close" ] in *)
               (* Reqd.respond_with_string reqd (Response.create ~headers `Method_not_allowed) ""); *)

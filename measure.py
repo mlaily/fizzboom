@@ -36,9 +36,6 @@ def kill_proc_on_port(port):
 
 
 def kill_procs():
-  kill_proc_on_port(1025)  # delay.js
-  kill_proc_on_port(4000)  # delay.js
-  kill_proc_on_port(5000)  # delay.js
   kill_proc_on_port(5001)  # ocaml worker proc
   kill_proc_on_port(5002)  # ocaml worker proc
   kill_proc_on_port(5003)  # ocaml worker proc
@@ -56,14 +53,10 @@ def logfile(dir, title):
 def run(dir, title, *args, **kwargs):
   logfilename = logfile(dir, title)
   with open(logfilename, "w") as file:
-    result = subprocess.run(*args,
-                            stdout=file,
-                            stderr=subprocess.STDOUT,
-                            **kwargs)
+    result = subprocess.run(*args, stdout=file, stderr=subprocess.STDOUT, **kwargs)
     if result.returncode != 0:
       raise Exception(
-          f"Failure running {args} - see {logfilename}: {readfile(logfilename)} "
-      )
+          f"Failure running {args} - see {logfilename}: {readfile(logfilename)} ")
     return result
 
 
@@ -101,23 +94,10 @@ def start_server(dir):
                             stdout=file)
   time.sleep(1)
   if handle.poll() != None:
-    raise (Exception(
-        f"Error starting server: see {filename}: {readfile(filename)}"))
+    raise (Exception(f"Error starting server: see {filename}: {readfile(filename)}"))
   time.sleep(1)
   if handle.poll() != None:
-    raise (Exception(
-        f"Error starting server: see {filename}: {readfile(filename)}"))
-  return handle
-
-
-def start_delay_server(dir):
-  kill_proc_on_port(1025)
-  p("  Starting delay_server")
-  file = open(logfile(dir, "delay_server"), "w")
-  handle = subprocess.Popen(["node", "delay.js"],
-                            stderr=subprocess.STDOUT,
-                            stdout=file)
-  time.sleep(2)
+    raise (Exception(f"Error starting server: see {filename}: {readfile(filename)}"))
   return handle
 
 
@@ -134,18 +114,6 @@ def measure_fizzbuzz(dir, url):
       "wrk", "--connections", "100", "--threads", "20", "--duration", "5s",
       "--timeout", "20s", url + "/fizzbuzz"
   ])
-
-
-def measure_fizzboom(dir, url):
-  p("  Measuring fizzboom")
-  # The delay.js node server is capable of about 1300 req/s
-  # To make this possible on macos, may need to run:
-  #   sudo sysctl -w kern.maxfiles=20480
-  cmd = [
-      "wrk", "--connections", "500", "--threads", "500", "--duration", "30s",
-      "--timeout", "20s", url + "/fizzboom"
-  ]
-  run(dir, "measure_fizzboom", cmd)
 
 
 class Result():
@@ -202,10 +170,6 @@ def report_fizzbuzz(dir):
   report("measure_fizzbuzz", dir)
 
 
-def report_fizzboom(dir):
-  report("measure_fizzboom", dir)
-
-
 def warmup_fizzbuzz(dir, url):
   p("  Warming up")
   run(dir, "warmup", [
@@ -219,20 +183,6 @@ def fizzbuzz():
   for i in range(1, 101):
     if i % 15 == 0:
       result.append("fizzbuzz")
-    elif i % 5 == 0:
-      result.append("buzz")
-    elif i % 3 == 0:
-      result.append("fizz")
-    else:
-      result.append(str(i))
-  return result
-
-
-def fizzboom():
-  result = []
-  for i in range(1, 101):
-    if i % 15 == 0:
-      result.append("")
     elif i % 5 == 0:
       result.append("buzz")
     elif i % 3 == 0:
@@ -263,27 +213,6 @@ def test_fizzbuzz(dir, url):
   return equal
 
 
-def test_fizzboom(dir, url):
-  p("  Testing fizzboom output")
-  response = None
-  body = None
-  answer = None
-  try:
-    response = urllib.request.urlopen(url + "/fizzboom")
-    body = response.read()
-    answer = json.loads(body)
-  except:
-    p("Failed to read fizzboom output")
-    p(f"Response {response}")
-    p(f"Body {body}")
-    p(f"Answer {answer}")
-
-  equal = answer == fizzboom()
-  if not equal:
-    p(f"Error in fizzboom output: {answer}")
-  return equal
-
-
 def get_host(dir):
   return "http://localhost:4000"
 
@@ -304,23 +233,16 @@ def benchmark(dir):
   build(dir)
   host = get_host(dir)
   server_handle = start_server(dir)
-  delay_server_handle = start_delay_server(dir)
   try:
     if not test_fizzbuzz(dir, host):
       p("  Failed fizzbuzz")
-    elif not test_fizzboom(dir, host):
-      p("  Failed fizzboom")
     else:
       warmup_fizzbuzz(dir, host)
       measure_fizzbuzz(dir, host)
       report_fizzbuzz(dir)
-
-      measure_fizzboom(dir, host)
-      report_fizzboom(dir)
   finally:
     kill_procs()
     stop_handle("server", dir, server_handle)
-    stop_handle("delay_server", dir, delay_server_handle)
 
 
 if len(sys.argv) > 1:

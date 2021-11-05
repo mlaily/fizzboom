@@ -19,8 +19,7 @@ let runAsync e =
 
 let webApp =
     choose [ GET >=> choose [
-        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz
-        route "/fizzboom" >=> runAsync Interpreter.fizzboom ]]
+        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz ]]
 
 let configureApp (app : IApplicationBuilder) =
     app.UseGiraffe webApp

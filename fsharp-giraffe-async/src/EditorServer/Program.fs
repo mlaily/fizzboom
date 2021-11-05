@@ -13,15 +13,13 @@ open FSharp.Control.Tasks
 let runAsync e =
     fun (next : HttpFunc) (ctx : HttpContext) ->
         task {
-            let! fizzboom = Interpreter.runJSONAsync e
-            return! text fizzboom next ctx
+            let! impl = Interpreter.runJSONAsync e
+            return! text impl next ctx
         }
-
 
 let webApp =
     choose [ GET >=> choose [
-        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz
-        route "/fizzboom" >=> runAsync Interpreter.fizzboom ]]
+        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz ]]
 
 let configureApp (app : IApplicationBuilder) =
     app.UseGiraffe webApp
