@@ -5,7 +5,7 @@ framework: 6.0
 
 storage: none
 
-nuget FSharp.Core = 5.0.0
+nuget FSharp.Core = 6.0.1
 nuget Giraffe = 5.0.0
 nuget FSharp.Data
 nuget Ply = 0.3.1

@@ -2,6 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <LanguageVersion>6.0</LanguageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Interpreter.fs" />
