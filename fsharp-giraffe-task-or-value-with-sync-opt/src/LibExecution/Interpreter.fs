@@ -216,6 +216,16 @@ module Environment =
     type RetVal = { tipe: DType; doc: string }
 
     type BuiltInFn =
+        | Sync of SyncFn
+        | Async of AsyncFn
+
+    and SyncFn =
+        { name: FnDesc.T
+          parameters: List<Param>
+          returnVal: RetVal
+          fn: (T * List<Dval>) -> Result<Dval, unit> }
+
+    and AsyncFn =
         { name: FnDesc.T
           parameters: List<Param>
           returnVal: RetVal
@@ -320,9 +330,15 @@ and call_fn_async (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<D
     match List.tryFind (fun (dv: Dval) -> dv.isSpecial) args with
     | Some special -> return special
     | None ->
-        match! fn.fn (env, args) with
-        | Ok result -> return result
-        | Error () -> return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
+        match fn with
+        | Environment.BuiltInFn.Async fn ->
+          match! fn.fn (env, args) with
+          | Ok result -> return result
+          | Error () -> return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
+        | Environment.BuiltInFn.Sync fn ->
+          match fn.fn (env, args) with
+          | Ok result -> return result
+          | Error () -> return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
   }
 
 
@@ -331,6 +347,7 @@ module StdLib =
     let functions (): Map<FnDesc.T, Environment.BuiltInFn> =
         let fns: List<Environment.BuiltInFn> =
             [
+              Environment.BuiltInFn.Sync
                 { name = (FnDesc.stdFnDesc "Int" "range" 0)
                   parameters =
                       [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -338,8 +355,9 @@ module StdLib =
                   returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
                   fn =
                       (function
-                      | _, [ DInt lower; DInt upper ] -> List.map DInt [ lower .. upper ] |> DList |> Ok |> Value
-                      | _ -> (Value(Error()))) }
+                      | _, [ DInt lower; DInt upper ] -> List.map DInt [ lower .. upper ] |> DList |> Ok
+                      | _ -> (Error())) }
+              Environment.BuiltInFn.Async
                 { name = (FnDesc.stdFnDesc "List" "map" 0)
                   parameters =
                       [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -360,6 +378,7 @@ module StdLib =
                             return Ok (result |> Dval.toDList)
                           })
                       | _ -> Value(Error())) }
+              Environment.BuiltInFn.Sync
                 { name = (FnDesc.stdFnDesc "Int" "%" 0)
                   parameters =
                       [ param "a" TInt "Numerator"
@@ -369,9 +388,10 @@ module StdLib =
                       (function
                       | env, [ DInt a; DInt b ] ->
                           try
-                              Value(Ok(DInt(a % b)))
-                          with _ -> Value(Ok(DInt(bigint 0)))
-                      | _ -> Value(Error())) }
+                              Ok(DInt(a % b))
+                          with _ -> Ok(DInt(bigint 0))
+                      | _ -> Error()) }
+              Environment.BuiltInFn.Sync
                 { name = (FnDesc.stdFnDesc "Int" "==" 0)
                   parameters =
                       [ param "a" TInt "a"
@@ -382,15 +402,17 @@ module StdLib =
                           "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
                   fn =
                       (function
-                      | env, [ DInt a; DInt b ] -> Value(Ok(DBool(a = b)))
-                      | _ -> Value(Error())) }
+                      | env, [ DInt a; DInt b ] -> Ok(DBool(a = b))
+                      | _ -> Error()) }
+              Environment.BuiltInFn.Sync
                 { name = (FnDesc.stdFnDesc "Int" "toString" 0)
                   parameters = [ param "a" TInt "value" ]
                   returnVal = (retVal TString "Stringified version of a")
                   fn =
                       (function
-                      | env, [ DInt a ] -> Value(Ok(DString(a.ToString())))
-                      | _ -> Value(Error())) }
+                      | env, [ DInt a ] -> Ok(DString(a.ToString()))
+                      | _ -> Error()) }
+              Environment.BuiltInFn.Async
                 { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
                   parameters = [ param "url" TString "URL to fetch" ]
                   returnVal = (retVal TString "Body of response")
@@ -408,7 +430,10 @@ module StdLib =
                               Value(Error())
                       | _ -> Value (Error())) } ]
         fns
-        |> List.map (fun fn -> (fn.name, fn))
+        |> List.map (fun fn ->
+            match fn with
+            | Environment.Async f -> (f.name), fn
+            | Environment.Sync f -> (f.name), fn)
         |> Map
 
 let env =

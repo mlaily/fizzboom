@@ -115,6 +115,16 @@ module Environment =
   type RetVal = { tipe : DType; doc : string }
 
   type BuiltInFn =
+    | Sync of SyncFn
+    | Async of AsyncFn
+
+  and SyncFn =
+    { name : FnDesc.T
+      parameters : List<Param>
+      returnVal : RetVal
+      fn : (T * List<Dval>) -> Result<Dval, unit> }
+
+  and AsyncFn =
     { name : FnDesc.T
       parameters : List<Param>
       returnVal : RetVal
@@ -260,7 +270,14 @@ and call_fn_async
     match List.tryFind (fun (dv : Dval) -> dv.isSpecial) args with
     | Some special -> return special
     | None ->
+      match fn with
+      | Environment.BuiltInFn.Async fn ->
         match! fn.fn (env, args) with
+        | Ok result -> return result
+        | Error () ->
+          return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
+      | Environment.BuiltInFn.Sync fn ->
+        match fn.fn (env, args) with
         | Ok result -> return result
         | Error () ->
           return err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
@@ -269,7 +286,7 @@ and call_fn_async
 module StdLib =
   let functions () : Map<FnDesc.T, Environment.BuiltInFn> =
     let fns : List<Environment.BuiltInFn> =
-      [
+      [ Environment.Sync
           { name = (FnDesc.stdFnDesc "Int" "range" 0)
             parameters =
               [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -282,8 +299,9 @@ module StdLib =
             fn =
               (function
               | _, [ DInt lower; DInt upper ] ->
-                List.map DInt [ lower .. upper ] |> DList |> Ok |> Task.FromResult
-              | _ -> Task.FromResult(Error())) }
+                List.map DInt [ lower .. upper ] |> DList |> Ok
+              | _ -> Error()) }
+        Environment.Async
           { name = (FnDesc.stdFnDesc "List" "map" 0)
             parameters =
               [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -310,6 +328,7 @@ module StdLib =
                 }
 
               | _ -> task { return Error() }) }
+        Environment.Sync
           { name = (FnDesc.stdFnDesc "Int" "%" 0)
             parameters = [ param "a" TInt "Numerator"; param "b" TInt "Denominator" ]
             returnVal = (retVal TInt "Returns the modulus of a / b")
@@ -317,10 +336,11 @@ module StdLib =
               (function
               | env, [ DInt a; DInt b ] ->
                 try
-                  Task.FromResult(Ok(DInt(a % b)))
+                  Ok(DInt(a % b))
                 with
-                | _ -> Task.FromResult(Ok(DInt(bigint 0)))
-              | _ -> Task.FromResult(Error())) }
+                | _ -> Ok(DInt(bigint 0))
+              | _ -> Error()) }
+        Environment.Sync
           { name = (FnDesc.stdFnDesc "Int" "==" 0)
             parameters = [ param "a" TInt "a"; param "b" TInt "b" ]
             returnVal =
@@ -329,15 +349,17 @@ module StdLib =
                 "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
             fn =
               (function
-              | env, [ DInt a; DInt b ] -> Task.FromResult(Ok(DBool(a = b)))
-              | _ -> Task.FromResult(Error())) }
+              | env, [ DInt a; DInt b ] -> Ok(DBool(a = b))
+              | _ -> Error()) }
+        Environment.Sync
           { name = (FnDesc.stdFnDesc "Int" "toString" 0)
             parameters = [ param "a" TInt "value" ]
             returnVal = (retVal TString "Stringified version of a")
             fn =
               (function
-              | env, [ DInt a ] -> task { return Ok(DString(a.ToString())) }
-              | _ -> Task.FromResult(Error())) }
+              | env, [ DInt a ] -> Ok(DString(a.ToString()))
+              | _ -> Error()) }
+        Environment.Async
           { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
             parameters = [ param "url" TString "URL to fetch" ]
             returnVal = (retVal TString "Body of response")
@@ -358,7 +380,10 @@ module StdLib =
 
     fns
     |> List.map
-         (fun fn -> (fn.name, fn))
+         (fun fn ->
+           match fn with
+           | Environment.Async f -> (f.name), fn
+           | Environment.Sync f -> (f.name), fn)
     |> Map
 
 
