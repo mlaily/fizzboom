@@ -193,8 +193,8 @@ def test_fizzbuzz(dir, url):
     response = urllib.request.urlopen(url + "/fizzbuzz")
     body = response.read()
     answer = json.loads(body)
-  except:
-    p("Failed to read test output")
+  except e:
+    p(f"Failed to read test output due to exception {e}")
     p(f"Response {response}")
     p(f"Body {body}")
     p(f"Answer {answer}")
