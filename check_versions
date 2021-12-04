@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+find fsharp -name "global.json" | xargs grep version
+find fsharp -name "LibExecution.fsproj" | xargs grep LangVersion
+find fsharp -name "LibExecution.fsproj" | xargs grep Target
+find fsharp -name "EditorServer.fsproj" | xargs grep LangVersion
+find fsharp -name "EditorServer.fsproj" | xargs grep Target
+find fsharp -name "paket.dependencies" | xargs grep FSharp.Core 
+find fsharp -name "run.sh" | xargs grep Release
