@@ -83,7 +83,6 @@ and RuntimeError =
     | NotAFunction of FnDesc.T
     | CondWithNonBool of Dval
     | FnCalledWithWrongTypes of FnDesc.T * List<Dval> * List<Param>
-    | FnCalledWhenNotSync of FnDesc.T * List<Dval> * List<Param>
     | UndefinedVariable of string
 
 
@@ -159,7 +158,6 @@ let fizzbuzz: Expr =
                   )
               )) ])
     )
-
 
 let map_s (list: List<'a>) (f: 'a -> Task<'b>) : Task<List<'b>> =
     task {

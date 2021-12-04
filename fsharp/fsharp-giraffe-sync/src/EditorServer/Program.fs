@@ -9,14 +9,14 @@ open Microsoft.Extensions.DependencyInjection
 open Giraffe
 open LibExecution
 
-let runFizzbuzz =
+let run e =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let fizzbuzz = Interpreter.runJSON Interpreter.fizzbuzz
+        let fizzbuzz = Interpreter.runJSON e
         text fizzbuzz next ctx
 
 let webApp =
     choose [ GET
-             >=> choose [ route "/fizzbuzz" >=> runFizzbuzz ] ]
+             >=> choose [ route "/fizzbuzz" >=> run Interpreter.fizzbuzz ] ]
 
 let configureApp (app: IApplicationBuilder) = app.UseGiraffe webApp
 

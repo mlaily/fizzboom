@@ -85,7 +85,6 @@ and RuntimeError =
     | NotAFunction of FnDesc.T
     | CondWithNonBool of Dval
     | FnCalledWithWrongTypes of FnDesc.T * List<Dval> * List<Param>
-    | FnCalledWhenNotSync of FnDesc.T * List<Dval> * List<Param>
     | UndefinedVariable of string
 
 

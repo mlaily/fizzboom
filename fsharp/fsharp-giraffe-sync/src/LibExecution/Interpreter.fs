@@ -50,12 +50,7 @@ type Dval =
 
     member this.toJSON() : FSharp.Data.JsonValue =
         match this with
-        | DInt i ->
-            try
-                JsonValue.Number(decimal i)
-            with
-            | :? System.OverflowException -> JsonValue.String(i.ToString())
-
+        | DInt i -> JsonValue.Number(decimal i)
         | DString str -> JsonValue.String(str)
 
         | DList l ->
@@ -103,7 +98,6 @@ and DType =
 
 let err (e: RuntimeError) = DSpecial(DError(e))
 
-
 module Symtable =
     type T = Symtable
     let empty: T = Map []
@@ -127,6 +121,7 @@ module Environment =
     let envWith (functions: Map<FnDesc.T, BuiltInFn>) : T = { functions = functions }
 
 let param (name: string) (tipe: DType) (doc: string) : Param = { name = name; tipe = tipe; doc = doc }
+
 let retVal (tipe: DType) (doc: string) : Environment.RetVal = { tipe = tipe; doc = doc }
 
 
@@ -292,18 +287,12 @@ module StdLib =
 
 
 
-let run (e: Expr) : Dval =
+let runJSON (e: Expr) : string =
     let env =
         Environment.envWith (StdLib.functions ())
 
-    eval env Symtable.empty e
+    let result = eval env Symtable.empty e
+    let json = result.toJSON ()
+    json.ToString()
 
 
-
-let runString (e: Expr) : string =
-
-    (run e).ToString()
-
-
-
-let runJSON (e: Expr) : string = ((run e).toJSON ()).ToString()

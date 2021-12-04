@@ -85,7 +85,6 @@ and RuntimeError =
     | NotAFunction of FnDesc.T
     | CondWithNonBool of Dval
     | FnCalledWithWrongTypes of FnDesc.T * List<Dval> * List<Param>
-    | FnCalledWhenNotSync of FnDesc.T * List<Dval> * List<Param>
     | UndefinedVariable of string
 
 
@@ -161,7 +160,6 @@ let fizzbuzz: Expr =
                   )
               )) ])
     )
-
 
 let map_s (list: List<'a>) (f: 'a -> Ply.Ply<'b>) : Ply.Ply<List<'b>> =
     uply {
@@ -273,7 +271,6 @@ module StdLib =
 
                             return (result |> Dval.toDList |> Ok)
                         }
-
                     | _ -> uply { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "%" 0)
                 parameters =
