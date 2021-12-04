@@ -2,16 +2,16 @@
 
 set -euo pipefail
 
-echo "in $1/global.json"
+echo "in $1global.json"
 find $1 -name "global.json" | xargs grep version
-echo "in $1/src/LibExecution/LibExecution.fsproj"
+echo -e "\nin $1src/LibExecution/LibExecution.fsproj"
 find $1 -name "LibExecution.fsproj" | xargs grep LangVersion
 find $1 -name "LibExecution.fsproj" | xargs grep Target
-echo "in $1/src/EditorServer/EditorServer.fsproj"
+echo -e  "\nin $1src/EditorServer/EditorServer.fsproj"
 find $1 -name "EditorServer.fsproj" | xargs grep LangVersion
 find $1 -name "EditorServer.fsproj" | xargs grep Target
-echo "in $1/paket.depencies"
+echo -e  "\nin $1paket.dependencies"
 find $1 -name "paket.dependencies" | xargs grep FSharp.Core 
 find $1 -name "paket.dependencies" | xargs grep framework
-echo "in $1/run.sh"
+echo -e  "\nin $1run.sh"
 find $1 -name "run.sh" | xargs grep Release
