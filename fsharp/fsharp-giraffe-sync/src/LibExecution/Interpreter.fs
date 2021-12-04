@@ -285,14 +285,11 @@ module StdLib =
         fns |> List.map (fun fn -> (fn.name, fn)) |> Map
 
 
+let env =
+    Environment.envWith (StdLib.functions ())
 
 
 let runJSON (e: Expr) : string =
-    let env =
-        Environment.envWith (StdLib.functions ())
-
     let result = eval env Symtable.empty e
     let json = result.toJSON ()
     json.ToString()
-
-

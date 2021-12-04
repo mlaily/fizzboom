@@ -85,7 +85,6 @@ and RuntimeError =
     | NotAFunction of FnDesc.T
     | CondWithNonBool of Dval
     | FnCalledWithWrongTypes of FnDesc.T * List<Dval> * List<Param>
-    | FnCalledWhenNotSync of FnDesc.T * List<Dval> * List<Param>
     | UndefinedVariable of string
 
 
@@ -170,7 +169,6 @@ let map_s (list: List<'a>) (f: 'a -> Task<Dval>) : Task<List<Dval>> =
                     List.fold
                         (fun (accum: Task<List<Dval>>) (arg: 'a) ->
                             task {
-                                // Ensure the previous computation is done first
                                 let! (accum: List<Dval>) = accum
                                 let! result = f arg
                                 return result :: accum
@@ -183,6 +181,7 @@ let map_s (list: List<'a>) (f: 'a -> Task<Dval>) : Task<List<Dval>> =
 
         return (result |> Seq.toList)
     }
+
 
 let rec evalAsync (env: Environment.T) (st: Symtable.T) (e: Expr) : Task<Dval> =
     let tryFindFn desc = env.functions.TryFind(desc)
@@ -245,12 +244,8 @@ module StdLib =
                 returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
                 fn =
                     (function
-                    | _, [ DInt lower; DInt upper ] ->
-                        List.map DInt [ lower .. upper ]
-                        |> DList
-                        |> Ok
-                        |> Task.FromResult
-                    | _ -> Task.FromResult(Error())) }
+                    | _, [ DInt lower; DInt upper ] -> task { return List.map DInt [ lower .. upper ] |> DList |> Ok }
+                    | _ -> task { return (Error()) }) }
               { name = (FnDesc.stdFnDesc "List" "map" 0)
                 parameters =
                     [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -272,7 +267,6 @@ module StdLib =
 
                             return (result |> Dval.toDList |> Ok)
                         }
-
                     | _ -> task { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "%" 0)
                 parameters =
@@ -283,10 +277,10 @@ module StdLib =
                     (function
                     | env, [ DInt a; DInt b ] ->
                         try
-                            Task.FromResult(Ok(DInt(a % b)))
+                            task { return Ok(DInt(a % b)) }
                         with
-                        | _ -> Task.FromResult(Ok(DInt(bigint 0)))
-                    | _ -> Task.FromResult(Error())) }
+                        | _ -> task { return Ok(DInt(bigint 0)) }
+                    | _ -> task { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
                     [ param "a" TInt "a"
@@ -297,15 +291,15 @@ module StdLib =
                         "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
                 fn =
                     (function
-                    | env, [ DInt a; DInt b ] -> Task.FromResult(Ok(DBool(a = b)))
-                    | _ -> Task.FromResult(Error())) }
+                    | env, [ DInt a; DInt b ] -> task { return Ok(DBool(a = b)) }
+                    | _ -> task { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "toString" 0)
                 parameters = [ param "a" TInt "value" ]
                 returnVal = (retVal TString "Stringified version of a")
                 fn =
                     (function
-                    | env, [ DInt a ] -> task { return Ok(DString(a.ToString())) }
-                    | _ -> Task.FromResult(Error())) }
+                    | env, [ DInt a ] -> task { return (Ok(DString(a.ToString()))) }
+                    | _ -> task { return (Error()) }) }
               { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
                 parameters = [ param "url" TString "URL to fetch" ]
                 returnVal = (retVal TString "Body of response")
@@ -320,8 +314,10 @@ module StdLib =
                             }
                         with
                         | e ->
-                            printfn "error in HttpClient::get: %s" (e.ToString())
-                            task { return Error() }
+                            task {
+                                printfn "error in HttpClient::get: %s" (e.ToString())
+                                return Error()
+                            }
                     | _ -> task { return Error() }) } ]
 
         fns |> List.map (fun fn -> (fn.name, fn)) |> Map

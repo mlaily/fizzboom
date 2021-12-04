@@ -159,15 +159,15 @@ let fizzbuzz: Expr =
               )) ])
     )
 
-let map_s (list: List<'a>) (f: 'a -> Task<'b>) : Task<List<'b>> =
+let map_s (list: List<'a>) (f: 'a -> Task<Dval>) : Task<List<Dval>> =
     task {
         let! result =
             task {
-                let! (accum: List<'b>) =
+                let! (accum: List<Dval>) =
                     List.fold
-                        (fun (accum: Task<List<'b>>) (arg: 'a) ->
+                        (fun (accum: Task<List<Dval>>) (arg: 'a) ->
                             task {
-                                let! (accum: List<'b>) = accum
+                                let! (accum: List<Dval>) = accum
                                 let! result = f arg
                                 return result :: accum
                             })
@@ -278,7 +278,7 @@ module StdLib =
                             task { return Ok(DInt(a % b)) }
                         with
                         | _ -> task { return Ok(DInt(bigint 0)) }
-                    | _ -> task { return (Error()) }) }
+                    | _ -> task { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
                     [ param "a" TInt "a"
@@ -290,7 +290,7 @@ module StdLib =
                 fn =
                     (function
                     | env, [ DInt a; DInt b ] -> task { return Ok(DBool(a = b)) }
-                    | _ -> task { return (Error()) }) }
+                    | _ -> task { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "toString" 0)
                 parameters = [ param "a" TInt "value" ]
                 returnVal = (retVal TString "Stringified version of a")
@@ -324,7 +324,7 @@ module StdLib =
 let env =
     Environment.envWith (StdLib.functions ())
 
-let runAsync (e: Expr) : Task<Dval> = (evalAsync env Symtable.empty e)
+let runAsync (e: Expr) : Task<Dval> = evalAsync env Symtable.empty e
 
 let runJSONAsync (e: Expr) : Task<string> =
     task {

@@ -244,12 +244,8 @@ module StdLib =
                 returnVal = retVal (TList(TInt)) "List of ints between lowerBound and upperBound"
                 fn =
                     (function
-                    | _, [ DInt lower; DInt upper ] ->
-                        List.map DInt [ lower .. upper ]
-                        |> DList
-                        |> Ok
-                        |> Ply.Ply
-                    | _ -> Ply.Ply(Error())) }
+                    | _, [ DInt lower; DInt upper ] -> uply { return List.map DInt [ lower .. upper ] |> DList |> Ok }
+                    | _ -> uply { return Error() }) }
               { name = (FnDesc.stdFnDesc "List" "map" 0)
                 parameters =
                     [ param "list" (TList(TVariable("a"))) "The list to be operated on"
@@ -271,7 +267,6 @@ module StdLib =
 
                             return (result |> Dval.toDList |> Ok)
                         }
-
                     | _ -> uply { return Error() }) }
               { name = (FnDesc.stdFnDesc "Int" "%" 0)
                 parameters =
@@ -282,10 +277,10 @@ module StdLib =
                     (function
                     | env, [ DInt a; DInt b ] ->
                         try
-                            Ply.Ply(Ok(DInt(a % b)))
+                            uply { return Ok(DInt(a % b)) }
                         with
-                        | _ -> Ply.Ply(Ok(DInt(bigint 0)))
-                    | _ -> Ply.Ply(Error())) }
+                        | _ -> uply { return Ok(DInt(bigint 0)) }
+                    | _ -> uply { return Error() } ) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
                     [ param "a" TInt "a"
@@ -296,15 +291,15 @@ module StdLib =
                         "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
                 fn =
                     (function
-                    | env, [ DInt a; DInt b ] -> Ply.Ply(Ok(DBool(a = b)))
-                    | _ -> Ply.Ply(Error())) }
+                    | env, [ DInt a; DInt b ] -> uply { return Ok(DBool(a = b)) }
+                    | _ -> uply { return Error() } ) }
               { name = (FnDesc.stdFnDesc "Int" "toString" 0)
                 parameters = [ param "a" TInt "value" ]
                 returnVal = (retVal TString "Stringified version of a")
                 fn =
                     (function
-                    | env, [ DInt a ] -> Ply.Ply(Ok(DString(a.ToString())))
-                    | _ -> Ply.Ply(Error())) }
+                    | env, [ DInt a ] -> uply { return Ok(DString(a.ToString())) }
+                    | _ -> uply { return Error() }) }
               { name = (FnDesc.stdFnDesc "HttpClient" "get" 0)
                 parameters = [ param "url" TString "URL to fetch" ]
                 returnVal = (retVal TString "Body of response")
