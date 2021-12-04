@@ -1,0 +1,11 @@
+version 6.0.6
+
+source https://api.nuget.org/v3/index.json
+framework: 6.0
+
+storage: none
+
+nuget FSharp.Core = 6.0.1
+nuget Giraffe = 5.0.0
+nuget FSharp.Data
+nuget TaskBuilder.fs = 2.1.0
