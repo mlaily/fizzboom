@@ -13,7 +13,7 @@ module FnDesc =
           function_: string
           version: int }
 
-    let fnDesc (owner: string) (package: string) (module_: string) (function_: string) (version: int): T =
+    let fnDesc (owner: string) (package: string) (module_: string) (function_: string) (version: int) : T =
         { owner = owner
           package = package
           module_ = module_
@@ -21,7 +21,7 @@ module FnDesc =
           version = version }
 
 
-    let stdFnDesc (module_: string) (function_: string) (version: int): T =
+    let stdFnDesc (module_: string) (function_: string) (version: int) : T =
         fnDesc "dark" "stdlib" module_ function_ version
 
 
@@ -48,12 +48,13 @@ type Dval =
         | DSpecial _ -> true
         | _ -> false
 
-    member this.toJSON(): FSharp.Data.JsonValue =
+    member this.toJSON() : FSharp.Data.JsonValue =
         match this with
         | DInt i ->
             try
                 JsonValue.Number(decimal i)
-            with :? System.OverflowException -> JsonValue.String(i.ToString())
+            with
+            | :? System.OverflowException -> JsonValue.String(i.ToString())
 
         | DString str -> JsonValue.String(str)
 
@@ -67,7 +68,7 @@ type Dval =
         | DLambda _ -> JsonValue.Null
         | DSpecial (DError (e)) -> JsonValue.Record [| "error", JsonValue.String(e.ToString()) |]
 
-    static member toDList(list: List<Dval>): Dval =
+    static member toDList(list: List<Dval>) : Dval =
         List.tryFind (fun (dv: Dval) -> dv.isSpecial) list
         |> Option.defaultValue (DList list)
 
@@ -107,7 +108,7 @@ module Symtable =
     type T = Symtable
     let empty: T = Map []
 
-    let get (st: T) (name: string): Dval =
+    let get (st: T) (name: string) : Dval =
         st.TryFind(name)
         |> Option.defaultValue (err (UndefinedVariable name))
 
@@ -123,48 +124,48 @@ module Environment =
 
     and T = { functions: Map<FnDesc.T, BuiltInFn> }
 
-    let envWith (functions: Map<FnDesc.T, BuiltInFn>): T = { functions = functions }
+    let envWith (functions: Map<FnDesc.T, BuiltInFn>) : T = { functions = functions }
 
-let param (name: string) (tipe: DType) (doc: string): Param = { name = name; tipe = tipe; doc = doc }
-let retVal (tipe: DType) (doc: string): Environment.RetVal = { tipe = tipe; doc = doc }
+let param (name: string) (tipe: DType) (doc: string) : Param = { name = name; tipe = tipe; doc = doc }
+let retVal (tipe: DType) (doc: string) : Environment.RetVal = { tipe = tipe; doc = doc }
 
 
-let sfn (module_: string) (function_: string) (version: int) (args: List<Expr>): Expr =
+let sfn (module_: string) (function_: string) (version: int) (args: List<Expr>) : Expr =
     EFnCall(FnDesc.fnDesc "dark" "stdlib" module_ function_ version, args)
 
-let binOp (arg1: Expr) (module_: string) (function_: string) (version: int) (arg2: Expr): Expr =
+let binOp (arg1: Expr) (module_: string) (function_: string) (version: int) (arg2: Expr) : Expr =
     EBinOp(arg1, FnDesc.fnDesc "dark" "stdlib" module_ function_ version, arg2)
 
 let fizzbuzz: Expr =
-    ELet
-        ("range",
-         (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
-         (sfn
-             "List"
-              "map"
-              0
-              [ EVariable "range"
-                (ELambda
-                    ([ "i" ],
-                     EIf
-                         ((binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15))) "Int" "==" 0 (EInt(bigint 0))),
-                          EString "fizzbuzz",
-                          EIf
-                              (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5))) "Int" "==" 0 (EInt(bigint 0)),
-                               EString "buzz",
-                               EIf
-                                   (binOp
-                                       (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3)))
-                                        "Int"
-                                        "=="
-                                        0
-                                        (EInt(bigint 0)),
-                                    EString "fizz",
-                                    sfn "Int" "toString" 0 [ EVariable "i" ]))))) ]))
+    ELet(
+        "range",
+        (sfn "Int" "range" 0 [ EInt(bigint 1); EInt(bigint 100) ]),
+        (sfn
+            "List"
+            "map"
+            0
+            [ EVariable "range"
+              (ELambda(
+                  [ "i" ],
+                  EIf(
+                      (binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 15))) "Int" "==" 0 (EInt(bigint 0))),
+                      EString "fizzbuzz",
+                      EIf(
+                          binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 5))) "Int" "==" 0 (EInt(bigint 0)),
+                          EString "buzz",
+                          EIf(
+                              binOp (binOp (EVariable "i") "Int" "%" 0 (EInt(bigint 3))) "Int" "==" 0 (EInt(bigint 0)),
+                              EString "fizz",
+                              sfn "Int" "toString" 0 [ EVariable "i" ]
+                          )
+                      )
+                  )
+              )) ])
+    )
 
 
 
-let rec eval (env: Environment.T) (st: Symtable.T) (e: Expr): Dval =
+let rec eval (env: Environment.T) (st: Symtable.T) (e: Expr) : Dval =
     match e with
     | EInt i -> DInt i
     | EString s -> DString s
@@ -190,23 +191,25 @@ let rec eval (env: Environment.T) (st: Symtable.T) (e: Expr): Dval =
     | EVariable (name) -> Symtable.get st name
     | EIf (cond, thenbody, elsebody) ->
         let cond = eval env st cond
+
         match cond with
         | DBool (true) -> eval env st thenbody
         | DBool (false) -> eval env st elsebody
         | _ -> err (CondWithNonBool cond)
 
 
-and call_fn (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<Dval>): Dval =
+and call_fn (env: Environment.T) (fn: Environment.BuiltInFn) (args: List<Dval>) : Dval =
     match List.tryFind (fun (dv: Dval) -> dv.isSpecial) args with
     | Some special -> special
     | None ->
         let result = fn.fn (env, args)
+
         match result with
         | Ok result -> result
         | Error () -> err (FnCalledWithWrongTypes(fn.name, args, fn.parameters))
 
 module StdLib =
-    let functions (): Map<FnDesc.T, Environment.BuiltInFn> =
+    let functions () : Map<FnDesc.T, Environment.BuiltInFn> =
         let fns: List<Environment.BuiltInFn> =
             [ { name = (FnDesc.stdFnDesc "Int" "range" 0)
                 parameters =
@@ -224,7 +227,7 @@ module StdLib =
                 returnVal =
                     (retVal
                         (TList(TVariable("b")))
-                         "A list created by the elements of `list` with `fn` called on each of them in order")
+                        "A list created by the elements of `list` with `fn` called on each of them in order")
                 fn =
                     (function
                     | env, [ DList l; DLambda (st, [ var ], body) ] ->
@@ -244,7 +247,8 @@ module StdLib =
                     | env, [ DInt a; DInt b ] ->
                         try
                             Ok(DInt(a % b))
-                        with _ -> Ok(DInt(bigint 0))
+                        with
+                        | _ -> Ok(DInt(bigint 0))
                     | _ -> Error()) }
               { name = (FnDesc.stdFnDesc "Int" "==" 0)
                 parameters =
@@ -253,7 +257,7 @@ module StdLib =
                 returnVal =
                     (retVal
                         TBool
-                         "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
+                        "True if structurally equal (they do not have to be the same piece of memory, two dicts or lists or strings with the same value will be equal), false otherwise")
                 fn =
                     (function
                     | env, [ DInt a; DInt b ] -> Ok(DBool(a = b))
@@ -276,7 +280,8 @@ module StdLib =
                             let response = FSharp.Data.Http.RequestString(url)
                             let info = JsonValue.Parse(response)
                             Ok(DString(info?data.AsString()))
-                        with e ->
+                        with
+                        | e ->
                             printfn "error in HttpClient::get: %s" (e.ToString())
                             Error()
 
@@ -287,7 +292,7 @@ module StdLib =
 
 
 
-let run (e: Expr): Dval =
+let run (e: Expr) : Dval =
     let env =
         Environment.envWith (StdLib.functions ())
 
@@ -295,10 +300,10 @@ let run (e: Expr): Dval =
 
 
 
-let runString (e: Expr): string =
+let runString (e: Expr) : string =
 
     (run e).ToString()
 
 
 
-let runJSON (e: Expr): string = ((run e).toJSON()).ToString()
+let runJSON (e: Expr) : string = ((run e).toJSON ()).ToString()

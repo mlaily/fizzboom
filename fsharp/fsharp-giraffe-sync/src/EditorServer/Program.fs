@@ -10,38 +10,40 @@ open Giraffe
 open LibExecution
 
 let runFizzbuzz =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
+    fun (next: HttpFunc) (ctx: HttpContext) ->
         let fizzbuzz = Interpreter.runJSON Interpreter.fizzbuzz
         text fizzbuzz next ctx
 
 let webApp =
-    choose [ GET >=> choose [
-        route "/fizzbuzz" >=> runFizzbuzz ]]
+    choose [ GET
+             >=> choose [ route "/fizzbuzz" >=> runFizzbuzz ] ]
 
-let configureApp (app : IApplicationBuilder) =
-    app.UseGiraffe webApp
+let configureApp (app: IApplicationBuilder) = app.UseGiraffe webApp
 
-let configureServices (services : IServiceCollection) =
-    services.AddGiraffe() |> ignore
+let configureServices (services: IServiceCollection) = services.AddGiraffe() |> ignore
 
-let configureLogging (builder : ILoggingBuilder) =
-    builder.AddFilter(fun l -> l >= LogLevel.Debug)
-           .AddConsole()
-           .AddDebug() |> ignore
+let configureLogging (builder: ILoggingBuilder) =
+    builder
+        .AddFilter(fun l -> l >= LogLevel.Debug)
+        .AddConsole()
+        .AddDebug()
+    |> ignore
 
 [<EntryPoint>]
 let main args =
     let contentRoot = Directory.GetCurrentDirectory()
-    Host.CreateDefaultBuilder(args)
-        .ConfigureWebHostDefaults(
-            fun webHostBuilder ->
-                webHostBuilder
-                    .UseUrls(sprintf "http://127.0.0.1:4000")
-                    .UseContentRoot(contentRoot)
-                    .Configure(Action<IApplicationBuilder> configureApp)
-                    .ConfigureServices(configureServices)
-                    .ConfigureLogging(configureLogging)
-                    |> ignore)
+
+    Host
+        .CreateDefaultBuilder(args)
+        .ConfigureWebHostDefaults(fun webHostBuilder ->
+            webHostBuilder
+                .UseUrls(sprintf "http://127.0.0.1:4000")
+                .UseContentRoot(contentRoot)
+                .Configure(Action<IApplicationBuilder> configureApp)
+                .ConfigureServices(configureServices)
+                .ConfigureLogging(configureLogging)
+            |> ignore)
         .Build()
         .Run()
+
     0

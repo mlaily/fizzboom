@@ -11,7 +11,7 @@ open LibExecution
 open FSharp.Control.Tasks
 
 let runAsync e =
-    fun (next : HttpFunc) (ctx : HttpContext) ->
+    fun (next: HttpFunc) (ctx: HttpContext) ->
         task {
             let! fizzboom = Interpreter.runJSONAsync e
             return! text fizzboom next ctx
@@ -19,33 +19,36 @@ let runAsync e =
 
 
 let webApp =
-    choose [ GET >=> choose [
-        route "/fizzbuzz" >=> runAsync Interpreter.fizzbuzz ]]
+    choose [ GET
+             >=> choose [ route "/fizzbuzz"
+                          >=> runAsync Interpreter.fizzbuzz ] ]
 
-let configureApp (app : IApplicationBuilder) =
-    app.UseGiraffe webApp
+let configureApp (app: IApplicationBuilder) = app.UseGiraffe webApp
 
-let configureServices (services : IServiceCollection) =
-    services.AddGiraffe() |> ignore
+let configureServices (services: IServiceCollection) = services.AddGiraffe() |> ignore
 
-let configureLogging (builder : ILoggingBuilder) =
-    builder.AddFilter(fun l -> l >= LogLevel.Debug)
-           .AddConsole()
-           .AddDebug() |> ignore
+let configureLogging (builder: ILoggingBuilder) =
+    builder
+        .AddFilter(fun l -> l >= LogLevel.Debug)
+        .AddConsole()
+        .AddDebug()
+    |> ignore
 
 [<EntryPoint>]
 let main args =
     let contentRoot = Directory.GetCurrentDirectory()
-    Host.CreateDefaultBuilder(args)
-        .ConfigureWebHostDefaults(
-            fun webHostBuilder ->
-                webHostBuilder
-                    .UseUrls("http://127.0.0.1:4000")
-                    .UseContentRoot(contentRoot)
-                    .Configure(Action<IApplicationBuilder> configureApp)
-                    .ConfigureServices(configureServices)
-                    .ConfigureLogging(configureLogging)
-                    |> ignore)
+
+    Host
+        .CreateDefaultBuilder(args)
+        .ConfigureWebHostDefaults(fun webHostBuilder ->
+            webHostBuilder
+                .UseUrls("http://127.0.0.1:4000")
+                .UseContentRoot(contentRoot)
+                .Configure(Action<IApplicationBuilder> configureApp)
+                .ConfigureServices(configureServices)
+                .ConfigureLogging(configureLogging)
+            |> ignore)
         .Build()
         .Run()
+
     0
