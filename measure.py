@@ -47,7 +47,7 @@ def p(str):
 
 
 def logfile(dir, title):
-  return "logs/" + dir + "_" + title + ".log"
+  return "logs/" + dir.replace("/", "_")  + "_" + title + ".log"
 
 
 def run(dir, title, *args, **kwargs):
@@ -248,7 +248,9 @@ def benchmark(dir):
 if len(sys.argv) > 1:
   p(f"Benchmarking just {sys.argv[1:]}")
   for f in sys.argv[1:]:
-    benchmark(f)
+    if (os.path.isdir(f) and (not f.startswith("."))
+        and (os.path.exists(f + "/build.sh"))):
+      benchmark(f)
 else:
   p("Starting entire benchmark")
   dirs = os.listdir()
