@@ -1,9 +1,9 @@
 STORAGE: NONE
-RESTRICTION: == net6.0
+RESTRICTION: == net5.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Core (5.0)
-    FSharp.Data (4.2.2)
+    FSharp.Data (4.2.6)
       FSharp.Core (>= 4.7.2)
     Giraffe (5.0)
       FSharp.Core (>= 5.0)
