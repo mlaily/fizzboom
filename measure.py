@@ -236,21 +236,19 @@ def benchmark(dir):
     kill_procs()
     stop_handle("server", dir, server_handle)
 
+def run_benchmarks(dirs):
+  dirs.sort()
+  for f in dirs:
+   if (os.path.isdir(f) and (not f.startswith("."))
+       and (os.path.exists(f + "/build.sh"))):
+     benchmark(f)
 
 if len(sys.argv) > 1:
   p(f"Benchmarking just {sys.argv[1:]}")
-  for f in sys.argv[1:]:
-    if (os.path.isdir(f) and (not f.startswith("."))
-        and (os.path.exists(f + "/build.sh"))):
-      benchmark(f)
+  run_benchmarks(sys.argv[1:])
 else:
   p("Starting entire benchmark")
-  dirs = os.listdir()
-  dirs.sort()
-  for f in dirs:
-    if (os.path.isdir(f) and (not f.startswith("."))
-        and (os.path.exists(f + "/build.sh"))):
-      benchmark(f)
+  run_benchmarks(os.listdir())
 
 # Print out the results of all the benchmarks
 for r in stored_results:
