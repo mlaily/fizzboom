@@ -1,4 +1,6 @@
-Benchmark the same async program across Rust, OCaml, and FSharp.
+Benchmark the same async program across Rust, OCaml, and F#.
+
+These days, it's mostly used to benchmark F# in various different configurations.
 
 # Benchmark overview
 
@@ -7,9 +9,9 @@ Dark already has [an
 implementation](https://github.com/darklang/dark/blob/main/backend/libexecution/ast.ml),
 but we are looking for improvements, especially around async.
 
-- fizzbuzz: using an interpreter connected to web server, dynamically calculate
-  fizzbuzz and return it as a JSON response. This is to test the raw speed of
-  the HTTP server and interpreter.
+The benchmark is fizzbuzz: using an interpreter connected to web server,
+dynamically calculate fizzbuzz and return it as a JSON response. This is to
+test the raw speed of the HTTP server and interpreter.
 
 The most important metric is _requests/second_.
 
