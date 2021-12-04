@@ -60,14 +60,6 @@ def run(dir, title, *args, **kwargs):
     return result
 
 
-#def run_and_save(dir, title, *args, **kwargs):
-#  with open(logfile(dir, title), "w") as file:
-#    result = subprocess.check_output(*args, stderr=subprocess.STDOUT, **kwargs)
-#    result = str(result)
-#    file.write(result)
-#    return result
-
-
 def TODO(str):
   p("TODO: " + str + "\n\n\n\n")
   sys.exit(-1)
@@ -209,7 +201,7 @@ def test_fizzbuzz(dir, url):
 
   equal = answer == fizzbuzz()
   if not equal:
-    p(f"Error in fizzbuzz output: {response}")
+    p(f"Error in fizzbuzz output: {response}\nSee {logfile(dir, 'server')}")
   return equal
 
 
