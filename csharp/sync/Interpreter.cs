@@ -59,21 +59,21 @@ namespace sync
     {
         public bool IsSpecial => Type == DValType.DSpecial;
 
-        public DVal ToDList(IReadOnlyList<DVal> list)
-            => list.FirstOrDefault(x => x.IsSpecial, new DList(list));
-
-        public JsonNode ToJson()
+        public JsonNode? ToJson()
             => this switch
             {
-                DInt i => JsonValue.Create(i.Value)!,
-                DString str => JsonValue.Create(str.Value)!,
-                DList l => new JsonArray(l.Values.Select(x => x.ToJson()).ToArray())!,
-                DBool b => JsonValue.Create(b.Value)!,
-                DLambda _ => JsonValue.Create<string>(null)!, // TODO: should this just be "null"?
+                DInt i => JsonValue.Create(i.Value),
+                DString str => JsonValue.Create(str.Value),
+                DList l => new JsonArray(l.Values.Select(x => x.ToJson()).ToArray()),
+                DBool b => JsonValue.Create(b.Value),
+                DLambda _ => null,
                 DSpecial s when s.Value is DError e =>
                     new JsonObject(new[] { KeyValuePair.Create("error", (JsonNode?)JsonValue.Create(e.ToString())) }),
                 _ => throw new InvalidOperationException(),
             };
+
+        public static DVal ToDList(IReadOnlyList<DVal> list)
+            => list.FirstOrDefault(x => x.IsSpecial, new DList(list));
 
         public static DVal Err(RuntimeError e) => new DSpecial(new DError(e));
     }
@@ -89,6 +89,13 @@ namespace sync
         public static IReadOnlyDictionary<string, DVal> Empty => new Dictionary<string, DVal>();
         public static DVal Get(this IReadOnlyDictionary<string, DVal> st, string name)
             => st.TryGetValue(name, out var value) ? value : DVal.Err(new ErrUndefinedVariable(name));
+        // TODO: how do we make this more efficient? (maybe we could use FSharp Map instead?)
+        public static IReadOnlyDictionary<string, DVal> CloneAdd(IReadOnlyDictionary<string, DVal> st, string name, DVal val)
+        {
+            var copy = st.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            copy.Add(name, val);
+            return copy;
+        }
     }
 
     public enum DTypeType
@@ -151,14 +158,14 @@ namespace sync
     public record Error<T>() : Result<T>;
 
     public record BuiltInFn(
-        string Name,
+        FnDesc Name,
         IReadOnlyList<Param> Parameters,
         RetVal ReturnVal,
         Func<Environment, IReadOnlyList<DVal>, Result<DVal>> Fn);
 
     public static class Interpreter
     {
-        public static readonly Expr FizzBuzz =
+        public static Expr FizzBuzz { get; } =
             new ELet(
                 "range",
                 Expr.Sfn("Int", "range", 0, new[] { new EInt(1), new EInt(100) }),
@@ -188,5 +195,197 @@ namespace sync
                     }
                 )
             );
+
+        public static DVal Eval(Environment env, IReadOnlyDictionary<string, DVal> st, Expr e)
+        {
+            switch (e)
+            {
+                case EInt i: return new DInt(i.Value);
+                case EString s: return new DString(s.Value);
+                case ELet let:
+                    {
+                        var rhs = Eval(env, st, let.Rhs);
+                        var newSt = Symtable.CloneAdd(st, let.Lhs, rhs);
+                        return Eval(env, newSt, let.Body);
+                    }
+                case EFnCall call:
+                    {
+                        if (env.Functions.TryGetValue(call.FnDesc, out var fn))
+                        {
+                            var args = call.Args.Select(x => Eval(env, st, x));
+                            return CallFn(env, fn, args.ToList());
+                        }
+                        else
+                            return DVal.Err(new ErrNotAFunction(call.FnDesc));
+                    }
+                case EBinOp binOp:
+                    {
+                        if (env.Functions.TryGetValue(binOp.FnDesc, out var fn))
+                        {
+                            var arg1 = Eval(env, st, binOp.Arg1);
+                            var arg2 = Eval(env, st, binOp.Arg2);
+                            return CallFn(env, fn, new[] { arg1, arg2 });
+                        }
+                        else
+                            return DVal.Err(new ErrNotAFunction(binOp.FnDesc));
+                    }
+                case ELambda lambda: return new DLambda(st, lambda.Vars, lambda.Expr);
+                case EVariable variable: return Symtable.Get(st, variable.Name);
+                case EIf eif:
+                    {
+                        var cond = Eval(env, st, eif.Cond);
+                        return cond switch
+                        {
+                            DBool x when x.Value == true => Eval(env, st, eif.ThenBody),
+                            DBool x when x.Value == false => Eval(env, st, eif.ElseBody),
+                            _ => DVal.Err(new ErrCondWithNonBool(cond)),
+                        };
+                    }
+                default: throw new InvalidOperationException();
+            }
+        }
+
+        private static DVal CallFn(Environment env, BuiltInFn fn, IReadOnlyList<DVal> args)
+        {
+            var firstSpecial = args.FirstOrDefault(x => x.IsSpecial);
+            if (firstSpecial != null)
+                return firstSpecial;
+            else
+            {
+                var result = fn.Fn(env, args); ;
+                return result switch
+                {
+                    Ok<DVal> ok => ok.Value,
+                    Error<DVal> error => DVal.Err(new ErrFnCalledWithWrongTypes(fn.Name, args, fn.Parameters)),
+                    _ => throw new InvalidOperationException(),
+                };
+            }
+        }
+
+        public static IReadOnlyDictionary<FnDesc, BuiltInFn> Functions()
+        {
+            var list = new List<BuiltInFn>()
+            {
+                new BuiltInFn(
+                    Name: FnDesc.StdFnDesc("Int", "range", 0),
+                    Parameters: new[]
+                    {
+                        // TODO: these param do not seem right for a range? Copy pase error?
+                        new Param("list", new TList(new TVariable("a")), "The list to be operated on"),
+                        new Param("fn", new TFn(new[] { new TVariable("a") }, new TVariable("b")), "Function to be called on each member"),
+                    },
+                    ReturnVal: new RetVal(new TList(new TInt()), "List of ints between lowerBound and upperBound"),
+                    Fn: (env, args) =>
+                    {
+                        if (args.Count == 2 && args[0] is DInt lower && args[1] is DInt upper)
+                        {
+                            // TODO: the range should support BigInteger properly
+                            var range = Enumerable.Range((int)lower.Value, (int)upper.Value).Select(x => new DInt(x));
+                            return new Ok<DVal>(new DList(range.ToList()));
+                        }
+                        else
+                            return new Error<DVal>();
+                    }),
+                new BuiltInFn(
+                    Name: FnDesc.StdFnDesc("List", "map", 0),
+                    Parameters: new[]
+                    {
+                        new Param("list", new TList(new TVariable("a")), "The list to be operated on"),
+                        new Param("fn", new TFn(new[] { new TVariable("a") }, new TVariable("b")), "Function to be called on each member"),
+                    },
+                    ReturnVal: new RetVal(new TList(new TVariable("b")), "A list created by the elelemnts of `list` with `fn` called on each of them in order"),
+                    Fn: (env, args) =>
+                    {
+                        if (args.Count == 2 && args[0] is DList l && args[1] is DLambda lambda && lambda.Vars.Count == 1)
+                        {
+                            var result = l.Values.Select(dv =>
+                            {
+                                var st = Symtable.CloneAdd(lambda.Symtable, lambda.Vars[0], dv);
+                                return Eval(env, st, lambda.Expr);
+                            });
+                            return new Ok<DVal>(DVal.ToDList(result.ToList()));
+                        }
+                        else
+                            return new Error<DVal>();
+                    }),
+                new BuiltInFn(
+                    Name: FnDesc.StdFnDesc("Int", "%", 0),
+                    Parameters: new[]
+                    {
+                        new Param("a", new TInt(), "Numerator"),
+                        new Param("b", new TInt(), "Denominator"),
+                    },
+                    ReturnVal: new RetVal(new TInt(), "Returns the modulus of a / b"),
+                    Fn: (env, args) =>
+                    {
+                        if (args.Count == 2 && args[0] is DInt a && args[1] is DInt b)
+                        {
+                            try
+                            {
+                                return new Ok<DVal>(new DInt(a.Value % b.Value));
+                            }
+                            catch
+                            {
+                                return new Ok<DVal>(new DInt(0));
+                            }
+                        }
+                        else
+                            return new Error<DVal>();
+                    }),
+                new BuiltInFn(
+                    Name: FnDesc.StdFnDesc("Int", "==", 0),
+                    Parameters: new[]
+                    {
+                        new Param("a", new TInt(), "a"),
+                        new Param("b", new TInt(), "b"),
+                    },
+                    ReturnVal: new RetVal(new TBool(), "True if equal"),
+                    Fn: (env, args) =>
+                    {
+                        if (args.Count == 2 && args[0] is DInt a && args[1] is DInt b)
+                            return new Ok<DVal>(new DBool(a == b));
+                        else
+                            return new Error<DVal>();
+                    }),
+                new BuiltInFn(
+                    Name: FnDesc.StdFnDesc("Int", "toString", 0),
+                    Parameters: new[]
+                    {
+                        new Param("a", new TInt(), "value"),
+                    },
+                    ReturnVal: new RetVal(new TString(), "Stringified version of a"),
+                    Fn: (env, args) =>
+                    {
+                        if (args.Count == 1 && args[0] is DInt a)
+                            return new Ok<DVal>(new DString(a.Value.ToString()));
+                        else
+                            return new Error<DVal>();
+                    }),
+                //new BuiltInFn(
+                //    Name: FnDesc.StdFnDesc("HttpClient", "get", 0),
+                //    Parameters: new[]
+                //    {
+                //        new Param("url", new TString(), "URL to fetch"),
+                //    },
+                //    ReturnVal: new RetVal(new TString(), "Body of response"),
+                //    Fn: (env, args) =>
+                //    {
+                //        if (args.Count == 1 && args[0] is DString url)
+                //            return new Ok<DVal>(new DString(a.Value.ToString()));
+                //        else
+                //            return new Error<DVal>();
+                //    }),
+            };
+            return list.ToDictionary(x => x.Name);
+        }
+
+        public static Environment Env { get; } = new Environment(Functions());
+
+        public static string RunJson(Expr e)
+        {
+            var result = Eval(Env, Symtable.Empty, e);
+            var json = result.ToJson();
+            return json.ToString();
+        }
     }
 }
