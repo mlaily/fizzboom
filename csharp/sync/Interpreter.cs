@@ -270,9 +270,8 @@ namespace sync
                     Name: FnDesc.StdFnDesc("Int", "range", 0),
                     Parameters: new[]
                     {
-                        // TODO: these param do not seem right for a range? Copy pase error?
-                        new Param("list", new TList(new TVariable("a")), "The list to be operated on"),
-                        new Param("fn", new TFn(new[] { new TVariable("a") }, new TVariable("b")), "Function to be called on each member"),
+                        new Param("lowerBound", new TInt(), "Range lower bound (inclusive)"),
+                        new Param("upperBound", new TInt(), "Range upper bound (inclusive)"),
                     },
                     ReturnVal: new RetVal(new TList(new TInt()), "List of ints between lowerBound and upperBound"),
                     Fn: (env, args) =>
@@ -280,7 +279,7 @@ namespace sync
                         if (args.Count == 2 && args[0] is DInt lower && args[1] is DInt upper)
                         {
                             // TODO: the range should support BigInteger properly
-                            var range = Enumerable.Range((int)lower.Value, (int)upper.Value).Select(x => new DInt(x));
+                            var range = Enumerable.Range((int)lower.Value, (int)(upper.Value - lower.Value + 1)).Select(x => new DInt(x));
                             return new Ok<DVal>(new DList(range.ToList()));
                         }
                         else
